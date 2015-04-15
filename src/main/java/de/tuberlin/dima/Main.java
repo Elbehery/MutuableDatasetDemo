@@ -15,10 +15,10 @@ public class Main {
     public static void main(String[] args) throws Exception{
 
         ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-        env.getConfig().disableObjectReuse();
+       // env.getConfig().disableObjectReuse();
 
-        DataSet<String> personDataString = env.readTextFile("/home/alexander/workspace/java/projects/MutuableDatasetDemo/src/main/resources/Person.csv");
-        DataSet<String> studentInfoDataSourceString = env.readTextFile("/home/alexander/workspace/java/projects/MutuableDatasetDemo/src/main/resources/StudentInfo.csv");
+        DataSet<String> personDataString = env.readTextFile("../MutuableDatasetDemo/src/main/resources/Person.csv");
+        DataSet<String> studentInfoDataSourceString = env.readTextFile("../MutuableDatasetDemo/src/main/resources/Person.csv");
 
         DataSet<Person> personDataSet = personDataString.map(new PersonMapper());
         DataSet<StudentInfo> studentInfoDataSet = studentInfoDataSourceString.map(new StudentInfoMapper());
@@ -34,7 +34,7 @@ public class Main {
         try {
             env.execute();
         }catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
+            System.out.println("Error: " + e.getCause());
         }
 
     }
