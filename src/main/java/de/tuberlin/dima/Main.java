@@ -15,10 +15,10 @@ public class Main {
     public static void main(String[] args) throws Exception{
 
         ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-       // env.getConfig().disableObjectReuse();
+        // env.getConfig().disableObjectReuse();
 
         DataSet<String> personDataString = env.readTextFile("../MutuableDatasetDemo/src/main/resources/Person.csv");
-        DataSet<String> studentInfoDataSourceString = env.readTextFile("../MutuableDatasetDemo/src/main/resources/Person.csv");
+        DataSet<String> studentInfoDataSourceString = env.readTextFile("../MutuableDatasetDemo/src/main/resources/StudentInfo.csv");
 
         DataSet<Person> personDataSet = personDataString.map(new PersonMapper());
         DataSet<StudentInfo> studentInfoDataSet = studentInfoDataSourceString.map(new StudentInfoMapper());
@@ -34,7 +34,7 @@ public class Main {
         try {
             env.execute();
         }catch (Exception e) {
-            System.out.println("Error: " + e.getCause());
+            System.out.println("Error: " + e.getMessage());
         }
 
     }
@@ -88,7 +88,6 @@ public class Main {
 
             Person person = iterable.iterator().next();
 
-
             ArrayList<StudentInfo> infos = new ArrayList<StudentInfo>();
             for(StudentInfo info : iterable1) {
                 infos.add(info);
@@ -96,6 +95,8 @@ public class Main {
             }
             if(infos.size()>0)
                 update(person, infos, collector);
+
+            collector.collect(new Tuple3<String, String, String>(person.getName(),String.valueOf(person.getAge()),String.valueOf(person.getSex())));
         }
 
         public void update(Person person, Collection<StudentInfo> infos, Collector<Tuple3<String, String,String>> collector) {
