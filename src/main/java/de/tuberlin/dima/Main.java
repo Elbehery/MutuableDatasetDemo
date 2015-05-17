@@ -102,8 +102,8 @@ public class Main {
         public void update(Person person, Collection<StudentInfo> infos, Collector<Tuple3<String, String,String>> collector) {
             //
             person.setMajor(infos.iterator().next().getMajor());
-            person.setBestCourse(infos.iterator().next().getCourses().get(0));
-            collector.collect(new Tuple3<String, String, String>(person.getName(),person.getMajor(),person.getBestCourse()));
+            person.getBestCourse().add((infos.iterator().next().getCourses().get(0)));
+            collector.collect(new Tuple3<String, String, String>(person.getName(),person.getMajor(),person.getBestCourse().get(0)));
 
         }
     }

@@ -1,7 +1,7 @@
 package de.tuberlin.dima;
 
 import java.io.Serializable;
-import java.util.Date;
+import java.util.*;
 
 public class Person implements Serializable{
 
@@ -10,7 +10,7 @@ public class Person implements Serializable{
     private char sex;
     private int age;
     private String major = null;
-    private String bestCourse = null;
+    private List<String> bestCourse = new ArrayList<String>();
 
     public String getMajor() {
         return major;
@@ -20,11 +20,11 @@ public class Person implements Serializable{
         this.major = major;
     }
 
-    public String getBestCourse() {
+    public List<String> getBestCourse() {
         return bestCourse;
     }
 
-    public void setBestCourse(String bestCourse) {
+    public void setBestCourse(List<String> bestCourse) {
         this.bestCourse = bestCourse;
     }
 
@@ -58,5 +58,17 @@ public class Person implements Serializable{
 
     public void setAge(int age) {
         this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        StringBuffer person = new StringBuffer().append(name).append(";")
+                .append(school).append(";").append(sex).append(";")
+                .append(age).append(";").append(major).append(";");
+
+        for(String course : bestCourse){
+            person.append(course).append(";");
+        }
+        return person.toString();
     }
 }
