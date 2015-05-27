@@ -1,4 +1,4 @@
-package de.tuberlin.dima;
+package de.tuberlin.dima.model;
 
 import java.io.Serializable;
 import java.util.*;
@@ -66,8 +66,13 @@ public class Person implements Serializable{
                 .append(school).append(";").append(sex).append(";")
                 .append(age).append(";").append(major).append(";");
 
+        int counter = 0;
         for(String course : bestCourse){
-            person.append(course).append(";");
+            person.append(course);
+            if(counter < bestCourse.size()-1) {
+                person.append(";");
+                counter++;
+            }
         }
         return person.toString();
     }

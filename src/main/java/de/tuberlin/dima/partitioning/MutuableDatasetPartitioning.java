@@ -1,7 +1,11 @@
 package de.tuberlin.dima.partitioning;
 
-import de.tuberlin.dima.Person;
-import de.tuberlin.dima.StudentInfo;
+import de.tuberlin.dima.io.MutableInputFormat;
+import de.tuberlin.dima.io.MutableInputFormatTest;
+import de.tuberlin.dima.model.StudentJobs;
+import de.tuberlin.dima.model.Person;
+import de.tuberlin.dima.model.StudentInfo;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
@@ -10,13 +14,17 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
+import org.apache.flink.api.java.io.TextInputFormat;
 import org.apache.flink.api.java.io.TextOutputFormat;
+import org.apache.flink.api.java.io.TypeSerializerInputFormat;
 import org.apache.flink.api.java.io.TypeSerializerOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.FileInputSplit;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.io.LocatableInputSplit;
 import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
@@ -46,6 +54,10 @@ public class MutuableDatasetPartitioning {
 				.readTextFile("../MutuableDatasetDemo/src/main/resources/StudentInfo.csv")
 				.map(new StudentInfoMapper());
 
+		DataSet<StudentJobs> inJobs = env
+				.readTextFile("../MutuableDatasetDemo/src/main/resources/Jobs.csv")
+				.map(new StudentJobsMapper());
+
 
 		try {
 
@@ -54,14 +66,37 @@ public class MutuableDatasetPartitioning {
 					.coGroup(inStudent.partitionByHash("name"))
 					.where("name").equalTo("name")
 					.with(new ComputeStudiesProfile())
-					.write(new TextOutputFormat(new Path()), "/home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
+					.write(new TextOutputFormat(new Path()), "file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
+
+			//DataSet<Person> secondIn = env.readFile(new TypeSerializerInputFormat(new GenericTypeInfo(Person.class)),"/home/mustafa/Documents/tst/1");
+			LocatableInputSplit [] splits = new LocatableInputSplit[env.getParallelism()];
+			splits[0] = new LocatableInputSplit(env.getParallelism(),"localhost");
+			splits[1] = new LocatableInputSplit(env.getParallelism(),"localhost");
+			splits[2] = new LocatableInputSplit(env.getParallelism(),"localhost");
+			DataSet<Person> secondIn = env.readFile(new MutableInputFormatTest(new Path(),splits),"file:///home/mustafa/Documents/tst/1").map(new PersonMapper());
+			secondIn.print();
+
+/*
+
+			TypeSerializerInputFormat<Person> typeSerializerInputFormat = new TypeSerializerInputFormat(new GenericTypeInfo(Person.class));
+			FileInputSplit [] writtenPerson = new FileInputSplit[env.getParallelism()];
+
+			int iter = 0;
+			for(FileInputSplit split : writtenPerson){
+				split = new FileInputSplit(iter,new Path("/home/mustafa/Documents/tst/"),0,-1,null);
+				typeSerializerInputFormat.open(split);
+				iter++;
+			}
+			//typeSerializerInputFormat.getInputSplitAssigner()
+*/
 
 
+			//inJobs.write(new TextOutputFormat(new Path()), "/home/mustafa/Documents/tst/jobs/", FileSystem.WriteMode.OVERWRITE);
 
 			final JobExecutionResult result = env.execute("Accumulator example");
 			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
 
-			System.out.format("number of objects in the map =  %s\n", taskFields);
+			//System.out.format("number of objects in the map =  %s\n", taskFields);
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
@@ -147,6 +182,25 @@ public class MutuableDatasetPartitioning {
 			person.setAge(Integer.parseInt(splits[3]));
 
 			return person;
+		}
+	}
+
+	public static class StudentJobsMapper implements MapFunction<String, StudentJobs> {
+
+		private StudentJobs studentJobs;
+
+		@Override
+		public StudentJobs map(String s) throws Exception {
+
+			studentJobs = new StudentJobs();
+
+			String[] splits = s.split(";");
+			studentJobs.setName(splits[0]);
+
+			for(int x=1; x<splits.length; x++ ){
+				studentJobs.getJobs().add(splits[x]);
+			}
+			return studentJobs;
 		}
 	}
 

@@ -1,5 +1,7 @@
 package de.tuberlin.dima;
 
+import de.tuberlin.dima.model.Person;
+import de.tuberlin.dima.model.StudentInfo;
 import org.apache.flink.api.common.functions.CoGroupFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.DataSet;
