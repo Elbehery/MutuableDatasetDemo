@@ -73,7 +73,7 @@ public class MutuableDatasetPartitioning {
 			splits[0] = new LocatableInputSplit(env.getParallelism(),"localhost");
 			splits[1] = new LocatableInputSplit(env.getParallelism(),"localhost");
 			splits[2] = new LocatableInputSplit(env.getParallelism(),"localhost");
-			DataSet<Person> secondIn = env.readFile(new MutableInputFormatTest(new Path(),splits),"file:///home/mustafa/Documents/tst/1").map(new PersonMapper());
+			DataSet<Person> secondIn = env.createInput(new MutableInputFormatTest(new Path("file:///home/mustafa/Documents/tst/1"),splits)).map(new PersonMapper());
 			secondIn.print();
 
 /*
