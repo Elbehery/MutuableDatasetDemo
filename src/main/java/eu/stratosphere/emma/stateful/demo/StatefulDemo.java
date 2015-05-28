@@ -15,6 +15,8 @@ public class StatefulDemo {
         final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 
         try {
+
+            // read the person data
             DataSet<Person> people = env
                     .readTextFile("../MutuableDatasetDemo/src/main/resources/Person.csv")
                     .map(new MapFunction<String, Person>() {
@@ -36,9 +38,8 @@ public class StatefulDemo {
                         }
                     });
 
-            // read the person data
-            Stateful.DataSet<Person, String> model = new Stateful.DataSet<Person, String>(
-                    people,
+            // create a stateful dataset (forces execution)
+            Stateful.Set<Person, String> model = new Stateful.Set<Person, String>(env, people,
                     new KeySelector<Person, String>() {
                         @Override
                         public String getKey(Person person) throws Exception {
@@ -46,7 +47,7 @@ public class StatefulDemo {
                         }
                     });
 
-            env.execute("Stateful[Create]");
+            System.out.println("DONE");
 
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage());

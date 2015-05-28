@@ -1,12 +1,23 @@
 package eu.stratosphere.emma.stateful.baseline;
 
+import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
+import org.apache.flink.api.common.functions.CoGroupFunction;
+import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.DataSet;
+import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.io.TypeSerializerInputFormat;
 import org.apache.flink.api.java.io.TypeSerializerOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.runtime.event.task.IntegerTaskEvent;
+import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -23,32 +34,73 @@ public class Stateful {
      * @param <A> Element type for the dataset.
      * @param <K> Key type dataset elements.
      */
-    public static class DataSet<A, K extends Comparable<K>> {
+    public static class Set<A, K extends Comparable<K>> {
 
         private final UUID uuid = UUID.randomUUID();
+        private final String path = String.format("%s/%s", STATEFUL_BASE_PATH, uuid);
+        private final ExecutionEnvironment env;
+        private final KeySelector<A, K> statefulKey;
+        private final ArrayList<Tuple2<Integer, String>> taskAssignmentMap;
+        private final TypeInformation<A> typeInformation;
 
         /**
          * Convert the stateless dataset into a stateful one.
          *
-         * @param stateless   The stateless dataset to be converted.
-         * @param keySelector The key selector to be used for hashing.
+         * @param stateless The stateless dataset to be converted.
+         * @param key       The key selector to be used for hashing.
          * @throws Exception
          */
-        public DataSet(org.apache.flink.api.java.DataSet<A> stateless, KeySelector<A, K> keySelector) throws Exception {
-            String outputPath = String.format("%s/%s", STATEFUL_BASE_PATH, uuid);
+        public Set(ExecutionEnvironment env, DataSet<A> stateless, KeySelector<A, K> key) throws Exception {
+            // create dataflow
+            String taskAssignmentAccumulatorName = String.format("%s.%s", TASK_INFO_ACC_PREFIX, uuid);
             stateless
-                    .partitionByHash(keySelector)
-                    .map(new HostTrackingMapper<A>(uuid))
-                    .write(new TypeSerializerOutputFormat<A>(), outputPath, FileSystem.WriteMode.NO_OVERWRITE);
+                    .partitionByHash(key)
+                    .map(new HostTrackingMapper<A>(taskAssignmentAccumulatorName))
+                    .write(new TypeSerializerOutputFormat<A>(), path, FileSystem.WriteMode.NO_OVERWRITE);
+
+            // execute dataflow
+            JobExecutionResult result = env.execute("Stateful[Create]");
+
+            // fetch
+            this.env = env;
+            this.statefulKey = key;
+            this.taskAssignmentMap = result.getAccumulatorResult(taskAssignmentAccumulatorName);
+            this.typeInformation = stateless.getType();
+        }
+
+        public <B, C> DataSet<C> updateWith(FlatMapFunction<Tuple2<A, B>, C> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
+
+            env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
+                    .coGroup(updates)
+                    .where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Object>())
+
+
+            return null;
         }
     }
 
+
+    private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
+
+        @Override
+        public void coGroup(Iterable<A> first, Iterable<B> second, Collector<C> out) throws Exception {
+
+        }
+
+    }
+
+    /**
+     * A special mapper that tracks the placement of an execution vertex. Used just before the write task in order
+     * to obtain a "taskID -> hostName" map for a stateful dataset.
+     *
+     * @param <A> Element type for the dataset.
+     */
     private static class HostTrackingMapper<A> extends RichMapFunction<A, A> {
 
-        private UUID uuid;
+        private String taskAssignmentAccumulatorName;
 
-        public HostTrackingMapper(UUID uuid) {
-            this.uuid = uuid;
+        public HostTrackingMapper(String taskAssignmentAccumulatorName) {
+            this.taskAssignmentAccumulatorName = taskAssignmentAccumulatorName;
         }
 
         private TaskAssignmentAccumulator taskAssignmentAccumulator = new TaskAssignmentAccumulator();
@@ -57,16 +109,20 @@ public class Stateful {
         public void open(Configuration parameters) throws Exception {
             super.open(parameters);
 
+            RuntimeContext ctx = getRuntimeContext();
+
+            // adding the host info to the local accumulator
+            // FIXME: we need to get the proper hostname via the RuntimeContext. If this is not possible at the moment, open a PR. This is a blocker and needs to be resolved ASAP.
+            Tuple2<Integer, String> hostInfo = new Tuple2<Integer, String>(getRuntimeContext().getIndexOfThisSubtask(), "localhost");
+            this.taskAssignmentAccumulator.add(hostInfo);
+
             // register the accumulator instance
-            getRuntimeContext().addAccumulator(String.format("%s.%s", TASK_INFO_ACC_PREFIX, uuid), this.taskAssignmentAccumulator);
+            getRuntimeContext().addAccumulator(taskAssignmentAccumulatorName, this.taskAssignmentAccumulator);
 
         }
 
         @Override
         public A map(A value) throws Exception {
-            // adding the host info to the local accumulator
-            Tuple2<Integer, String> hostInfo = new Tuple2<Integer, String>(getRuntimeContext().getIndexOfThisSubtask(), getRuntimeContext().getTaskName());
-            this.taskAssignmentAccumulator.add(hostInfo);
             return value;
         }
     }
