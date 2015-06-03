@@ -29,6 +29,7 @@ import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 
@@ -41,6 +42,7 @@ public class MutuableDatasetPartitioning {
 
 		final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(3);
+		env.getConfig().enableObjectReuse();
 		env.getConfig().setExecutionMode(ExecutionMode.BATCH_FORCED);
 
 
@@ -61,37 +63,15 @@ public class MutuableDatasetPartitioning {
 
 		try {
 
-			inPerson.partitionByHash("name") // TODO: as KeySelector
-					.map(new TrackHost())
-					.coGroup(inStudent.partitionByHash("name"))
-					.where("name").equalTo("name")
-					.with(new ComputeStudiesProfile())
-					.write(new TextOutputFormat(new Path()), "file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
+			DataSet<Person> updatedPersonOne = inPerson.coGroup(inStudent)
+												.where("name").equalTo("name")
+												.with(new ComputeStudiesProfile());
 
-			//DataSet<Person> secondIn = env.readFile(new TypeSerializerInputFormat(new GenericTypeInfo(Person.class)),"/home/mustafa/Documents/tst/1");
-			LocatableInputSplit [] splits = new LocatableInputSplit[env.getParallelism()];
-			splits[0] = new LocatableInputSplit(env.getParallelism(),"localhost");
-			splits[1] = new LocatableInputSplit(env.getParallelism(),"localhost");
-			splits[2] = new LocatableInputSplit(env.getParallelism(),"localhost");
-			DataSet<Person> secondIn = env.createInput(new MutableInputFormatTest(new Path("file:///home/mustafa/Documents/tst/1"),splits)).map(new PersonMapper());
-			secondIn.print();
+			DataSet<Person> updatedPersonTwo = inPerson.coGroup(inJobs)
+												.where("name").equalTo("name")
+												.with(new ComputeJobsProfile());
 
-/*
-
-			TypeSerializerInputFormat<Person> typeSerializerInputFormat = new TypeSerializerInputFormat(new GenericTypeInfo(Person.class));
-			FileInputSplit [] writtenPerson = new FileInputSplit[env.getParallelism()];
-
-			int iter = 0;
-			for(FileInputSplit split : writtenPerson){
-				split = new FileInputSplit(iter,new Path("/home/mustafa/Documents/tst/"),0,-1,null);
-				typeSerializerInputFormat.open(split);
-				iter++;
-			}
-			//typeSerializerInputFormat.getInputSplitAssigner()
-*/
-
-
-			//inJobs.write(new TextOutputFormat(new Path()), "/home/mustafa/Documents/tst/jobs/", FileSystem.WriteMode.OVERWRITE);
+			updatedPersonTwo.print();
 
 			final JobExecutionResult result = env.execute("Accumulator example");
 			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
@@ -196,10 +176,8 @@ public class MutuableDatasetPartitioning {
 
 			String[] splits = s.split(";");
 			studentJobs.setName(splits[0]);
+			studentJobs.getJobs().add(splits[1]);
 
-			for(int x=1; x<splits.length; x++ ){
-				studentJobs.getJobs().add(splits[x]);
-			}
 			return studentJobs;
 		}
 	}
@@ -216,11 +194,7 @@ public class MutuableDatasetPartitioning {
 			String[] split = s.split(";");
 			studentInfo.setName(split[0]);
 			studentInfo.setMajor(split[1]);
-
-			String[] courses = split[2].split(",");
-
-			for (String str : courses)
-				studentInfo.getCourses().add(str);
+			studentInfo.getCourses().add(split[2]);
 
 			return studentInfo;
 		}
@@ -246,6 +220,33 @@ public class MutuableDatasetPartitioning {
 			person.setMajor(infos.iterator().next().getMajor());
 			for(StudentInfo info : infos){
 				person.getBestCourse().addAll(info.getCourses());
+			}
+			collector.collect(person);
+		}
+	}
+
+	public static class ComputeJobsProfile implements CoGroupFunction<Person, StudentJobs, Person> {
+
+		@Override
+		public void coGroup(Iterable<Person> iterable, Iterable<StudentJobs> iterable1, Collector<Person> collector) throws Exception {
+
+			 Iterator<Person> iterator = iterable.iterator();
+
+			Person person = iterator.next();
+
+			ArrayList<StudentJobs> jobs = new ArrayList<StudentJobs>();
+			for (StudentJobs job : iterable1) {
+				jobs.add(job);
+			}
+			if (jobs.size() > 0) {
+				update(person, jobs, collector);
+			}
+		}
+
+		public void update(Person person, Collection<StudentJobs> jobs, Collector<Person> collector) {
+
+			for(StudentJobs job : jobs){
+				person.getJobs().addAll(job.getJobs());
 			}
 			collector.collect(person);
 		}

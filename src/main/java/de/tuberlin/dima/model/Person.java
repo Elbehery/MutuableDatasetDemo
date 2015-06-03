@@ -11,6 +11,7 @@ public class Person implements Serializable{
     private int age;
     private String major = null;
     private List<String> bestCourse = new ArrayList<String>();
+    private List<String> jobs = new ArrayList<String>();
 
     public String getMajor() {
         return major;
@@ -60,6 +61,14 @@ public class Person implements Serializable{
         this.age = age;
     }
 
+    public List<String> getJobs() {
+        return jobs;
+    }
+
+    public void setJobs(List<String> jobs) {
+        this.jobs = jobs;
+    }
+
     @Override
     public String toString() {
         StringBuffer person = new StringBuffer().append(name).append(";")
@@ -70,6 +79,15 @@ public class Person implements Serializable{
         for(String course : bestCourse){
             person.append(course);
             if(counter < bestCourse.size()-1) {
+                person.append(";");
+                counter++;
+            }
+        }
+
+        counter = 0;
+        for(String job : jobs){
+            person.append(job);
+            if(counter < jobs.size()-1) {
                 person.append(";");
                 counter++;
             }

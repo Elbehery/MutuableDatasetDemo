@@ -72,7 +72,7 @@ public class Stateful {
 
             env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
                     .coGroup(updates)
-                    .where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Object>())
+                    .where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Object>());
 
 
             return null;
