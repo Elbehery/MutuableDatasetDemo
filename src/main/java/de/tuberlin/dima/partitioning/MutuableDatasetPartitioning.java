@@ -41,8 +41,9 @@ public class MutuableDatasetPartitioning {
 	public static void main(String[] args) {
 
 		final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-		env.setParallelism(3);
-		env.getConfig().enableObjectReuse();
+		env.setParallelism(1);
+	//	env.getConfig().enableForceAvro();
+	//	env.getConfig().enableObjectReuse();
 		env.getConfig().setExecutionMode(ExecutionMode.BATCH_FORCED);
 
 
@@ -67,13 +68,28 @@ public class MutuableDatasetPartitioning {
 												.where("name").equalTo("name")
 												.with(new ComputeStudiesProfile());
 
-			DataSet<Person> updatedPersonTwo = inPerson.coGroup(inJobs)
+			/*DataSet<Person> updatedPersonTwo = updatedPersonOne.coGroup(inJobs)
 												.where("name").equalTo("name")
-												.with(new ComputeJobsProfile());
+												.with(new ComputeJobsProfile());*/
 
-			updatedPersonTwo.print();
+			// TODO: to write as Pojos
+			TypeSerializerOutputFormat<Person> personTypeSerializerOutputFormat = new TypeSerializerOutputFormat<Person>();
+			personTypeSerializerOutputFormat.setInputType(new GenericTypeInfo(Person.class),env.getConfig());
+			updatedPersonOne.write(personTypeSerializerOutputFormat, "file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
 
-			final JobExecutionResult result = env.execute("Accumulator example");
+			// TODO: to write as Text
+		//	updatedPersonOne.write(new TextOutputFormat<Person>(new Path()),"file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
+
+
+			// TODO: to read as Pojos
+			DataSet<Person> updatedPersonOneFromDisk = env.readFile(new TypeSerializerInputFormat(new GenericTypeInfo(Person.class)),"/home/mustafa/Documents/tst");
+
+			// TODO: to read as Text
+		//	DataSet<String> updatedPersonOneFromDisk = env.readFile(new TextInputFormat(new Path()),"/home/mustafa/Documents/tst");
+
+			updatedPersonOneFromDisk.print();
+
+			final JobExecutionResult result = env.execute("coGrouping sequence example");
 			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
 
 			//System.out.format("number of objects in the map =  %s\n", taskFields);
@@ -202,15 +218,20 @@ public class MutuableDatasetPartitioning {
 
 	public static class ComputeStudiesProfile implements CoGroupFunction<Person, StudentInfo, Person> {
 
+		Person person;
+
 		@Override
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentInfo> iterable1, Collector<Person> collector) throws Exception {
 
-			Person person = iterable.iterator().next();
+			Iterator<Person> iterator = iterable.iterator();
+			person = iterator.next();
 
 			ArrayList<StudentInfo> infos = new ArrayList<StudentInfo>();
-			for (StudentInfo info : iterable1) {
-				infos.add(info);
-			}
+			Iterator<StudentInfo> infosIterator = iterable1.iterator();
+
+			while(infosIterator.hasNext())
+					infos.add(infosIterator.next());
+
 			if (infos.size() > 0) {
 				update(person, infos, collector);
 			}
@@ -230,9 +251,7 @@ public class MutuableDatasetPartitioning {
 		@Override
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentJobs> iterable1, Collector<Person> collector) throws Exception {
 
-			 Iterator<Person> iterator = iterable.iterator();
-
-			Person person = iterator.next();
+			 Person person = iterable.iterator().next();
 
 			ArrayList<StudentJobs> jobs = new ArrayList<StudentJobs>();
 			for (StudentJobs job : iterable1) {
