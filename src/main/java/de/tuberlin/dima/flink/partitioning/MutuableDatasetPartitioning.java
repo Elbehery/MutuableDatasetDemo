@@ -33,7 +33,7 @@ public class MutuableDatasetPartitioning {
 	public static void main(String[] args) {
 
 		final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-		env.setParallelism(1);
+		env.setParallelism(3);
 	//	env.getConfig().enableForceAvro();
 	//	env.getConfig().enableObjectReuse();
 		env.getConfig().setExecutionMode(ExecutionMode.BATCH_FORCED);
@@ -60,10 +60,10 @@ public class MutuableDatasetPartitioning {
 												.where("name").equalTo("name")
 												.with(new ComputeStudiesProfile());
 
-			/*DataSet<Person> updatedPersonTwo = updatedPersonOne.coGroup(inJobs)
+			DataSet<Person> updatedPersonTwo = updatedPersonOne.coGroup(inJobs)
 												.where("name").equalTo("name")
-												.with(new ComputeJobsProfile());*/
-
+												.with(new ComputeJobsProfile());
+/*
 			// TODO: to write as Pojos
 			TypeSerializerOutputFormat<Person> personTypeSerializerOutputFormat = new TypeSerializerOutputFormat<Person>();
 			personTypeSerializerOutputFormat.setInputType(new GenericTypeInfo(Person.class),env.getConfig());
@@ -84,7 +84,9 @@ public class MutuableDatasetPartitioning {
 			final JobExecutionResult result = env.execute("coGrouping sequence example");
 			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
 
-			//System.out.format("number of objects in the map =  %s\n", taskFields);
+			//System.out.format("number of objects in the map =  %s\n", taskFields);*/
+
+			updatedPersonTwo.print();
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
@@ -216,7 +218,8 @@ public class MutuableDatasetPartitioning {
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentInfo> iterable1, Collector<Person> collector) throws Exception {
 
 			Iterator<Person> iterator = iterable.iterator();
-			person = iterator.next();
+			if(iterator.hasNext())
+				person = iterator.next();
 
 			ArrayList<StudentInfo> infos = new ArrayList<StudentInfo>();
 			Iterator<StudentInfo> infosIterator = iterable1.iterator();
@@ -240,10 +243,15 @@ public class MutuableDatasetPartitioning {
 
 	public static class ComputeJobsProfile implements CoGroupFunction<Person, StudentJobs, Person> {
 
+		Person person;
+
 		@Override
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentJobs> iterable1, Collector<Person> collector) throws Exception {
 
-			 Person person = iterable.iterator().next();
+
+			  Iterator<Person> iterator = iterable.iterator();
+			  if (iterator.hasNext())
+				  person = iterator.next();
 
 			ArrayList<StudentJobs> jobs = new ArrayList<StudentJobs>();
 			for (StudentJobs job : iterable1) {
