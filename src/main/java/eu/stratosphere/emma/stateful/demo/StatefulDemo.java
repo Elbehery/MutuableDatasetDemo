@@ -1,6 +1,6 @@
 package eu.stratosphere.emma.stateful.demo;
 
-import de.tuberlin.dima.model.Person;
+import de.tuberlin.dima.flink.model.Person;
 import eu.stratosphere.emma.stateful.baseline.Stateful;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.DataSet;

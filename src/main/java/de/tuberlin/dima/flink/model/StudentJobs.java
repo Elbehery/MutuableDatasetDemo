@@ -1,4 +1,4 @@
-package de.tuberlin.dima.model;
+package de.tuberlin.dima.flink.model;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,10 +1,9 @@
-package de.tuberlin.dima.partitioning;
+package de.tuberlin.dima.flink.partitioning;
 
 import org.apache.flink.api.java.io.TextOutputFormat;
 import org.apache.flink.core.fs.Path;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 
 /**
  * Created by mustafa on 27/04/15.

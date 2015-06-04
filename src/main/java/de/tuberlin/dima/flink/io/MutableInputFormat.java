@@ -1,4 +1,4 @@
-package de.tuberlin.dima.io;
+package de.tuberlin.dima.flink.io;
 
 import org.apache.flink.api.common.io.StrictlyLocalAssignment;
 import org.apache.flink.core.io.InputSplitAssigner;

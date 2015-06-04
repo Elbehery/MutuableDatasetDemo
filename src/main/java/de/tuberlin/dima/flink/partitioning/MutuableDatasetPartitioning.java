@@ -1,11 +1,8 @@
-package de.tuberlin.dima.partitioning;
+package de.tuberlin.dima.flink.partitioning;
 
-import de.tuberlin.dima.io.MutableInputFormat;
-import de.tuberlin.dima.io.MutableInputFormatTest;
-import de.tuberlin.dima.model.StudentJobs;
-import de.tuberlin.dima.model.Person;
-import de.tuberlin.dima.model.StudentInfo;
-import org.apache.flink.api.common.ExecutionConfig;
+import de.tuberlin.dima.flink.model.StudentJobs;
+import de.tuberlin.dima.flink.model.Person;
+import de.tuberlin.dima.flink.model.StudentInfo;
 import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
@@ -14,17 +11,12 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.io.TextInputFormat;
-import org.apache.flink.api.java.io.TextOutputFormat;
 import org.apache.flink.api.java.io.TypeSerializerInputFormat;
 import org.apache.flink.api.java.io.TypeSerializerOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.core.fs.FileInputSplit;
 import org.apache.flink.core.fs.FileSystem;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.core.io.LocatableInputSplit;
 import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
