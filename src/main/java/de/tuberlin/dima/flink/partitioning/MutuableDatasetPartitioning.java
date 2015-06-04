@@ -1,28 +1,22 @@
 package de.tuberlin.dima.flink.partitioning;
 
-import de.tuberlin.dima.flink.model.StudentJobs;
 import de.tuberlin.dima.flink.model.Person;
 import de.tuberlin.dima.flink.model.StudentInfo;
+import de.tuberlin.dima.flink.model.StudentJobs;
 import org.apache.flink.api.common.ExecutionMode;
-import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.CoGroupFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RichMapFunction;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.io.TypeSerializerInputFormat;
-import org.apache.flink.api.java.io.TypeSerializerOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 
 
 public class MutuableDatasetPartitioning {
@@ -34,8 +28,8 @@ public class MutuableDatasetPartitioning {
 
 		final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(3);
-	//	env.getConfig().enableForceAvro();
-	//	env.getConfig().enableObjectReuse();
+		//	env.getConfig().enableForceAvro();
+		env.getConfig().disableObjectReuse();
 		env.getConfig().setExecutionMode(ExecutionMode.BATCH_FORCED);
 
 
@@ -57,12 +51,14 @@ public class MutuableDatasetPartitioning {
 		try {
 
 			DataSet<Person> updatedPersonOne = inPerson.coGroup(inStudent)
-												.where("name").equalTo("name")
-												.with(new ComputeStudiesProfile());
+					.where("name").equalTo("name")
+					.with(new ComputeStudiesProfile());
 
 			DataSet<Person> updatedPersonTwo = updatedPersonOne.coGroup(inJobs)
-												.where("name").equalTo("name")
-												.with(new ComputeJobsProfile());
+					.where("name").equalTo("name")
+					.with(new ComputeJobsProfile());
+
+			updatedPersonTwo.print();
 /*
 			// TODO: to write as Pojos
 			TypeSerializerOutputFormat<Person> personTypeSerializerOutputFormat = new TypeSerializerOutputFormat<Person>();
@@ -85,8 +81,6 @@ public class MutuableDatasetPartitioning {
 			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
 
 			//System.out.format("number of objects in the map =  %s\n", taskFields);*/
-
-			updatedPersonTwo.print();
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
@@ -212,29 +206,32 @@ public class MutuableDatasetPartitioning {
 
 	public static class ComputeStudiesProfile implements CoGroupFunction<Person, StudentInfo, Person> {
 
-		Person person;
-
 		@Override
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentInfo> iterable1, Collector<Person> collector) throws Exception {
 
+
+			Person person = null;
 			Iterator<Person> iterator = iterable.iterator();
-			if(iterator.hasNext())
+			if (iterator.hasNext()) {
 				person = iterator.next();
+			}
 
-			ArrayList<StudentInfo> infos = new ArrayList<StudentInfo>();
-			Iterator<StudentInfo> infosIterator = iterable1.iterator();
+			if (person != null) {
+				ArrayList<StudentInfo> infos = new ArrayList<StudentInfo>();
+				Iterator<StudentInfo> infosIterator = iterable1.iterator();
 
-			while(infosIterator.hasNext())
+				while (infosIterator.hasNext())
 					infos.add(infosIterator.next());
 
-			if (infos.size() > 0) {
-				update(person, infos, collector);
+				if (infos.size() > 0) {
+					update(person, infos, collector);
+				}
 			}
 		}
 
 		public void update(Person person, Collection<StudentInfo> infos, Collector<Person> collector) {
 			person.setMajor(infos.iterator().next().getMajor());
-			for(StudentInfo info : infos){
+			for (StudentInfo info : infos) {
 				person.getBestCourse().addAll(info.getCourses());
 			}
 			collector.collect(person);
@@ -243,28 +240,31 @@ public class MutuableDatasetPartitioning {
 
 	public static class ComputeJobsProfile implements CoGroupFunction<Person, StudentJobs, Person> {
 
-		Person person;
-
 		@Override
 		public void coGroup(Iterable<Person> iterable, Iterable<StudentJobs> iterable1, Collector<Person> collector) throws Exception {
 
+			Person person = null;
+			Iterator<Person> iterator = iterable.iterator();
 
-			  Iterator<Person> iterator = iterable.iterator();
-			  if (iterator.hasNext())
-				  person = iterator.next();
+			if (iterator.hasNext()) {
+				person = iterator.next();
+			}
 
-			ArrayList<StudentJobs> jobs = new ArrayList<StudentJobs>();
-			for (StudentJobs job : iterable1) {
-				jobs.add(job);
+			if (person != null) {
+				ArrayList<StudentJobs> jobs = new ArrayList<StudentJobs>();
+				for (StudentJobs job : iterable1) {
+					jobs.add(job);
+				}
+				if (jobs.size() > 0) {
+					update(person, jobs, collector);
+				}
 			}
-			if (jobs.size() > 0) {
-				update(person, jobs, collector);
-			}
+
 		}
 
 		public void update(Person person, Collection<StudentJobs> jobs, Collector<Person> collector) {
 
-			for(StudentJobs job : jobs){
+			for (StudentJobs job : jobs) {
 				person.getJobs().addAll(job.getJobs());
 			}
 			collector.collect(person);

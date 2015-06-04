@@ -9,7 +9,7 @@ public class Person implements Serializable{
     private String school;
     private char sex;
     private int age;
-    private String major = "";
+    private String major = null;
     private List<String> bestCourse = new ArrayList<String>();
     private List<String> jobs = new ArrayList<String>();
 
