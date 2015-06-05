@@ -68,13 +68,19 @@ public class MutuableDatasetPartitioning {
 					.with(new ComputeStudiesProfile())
 					.write(new TextOutputFormat(new Path()), "file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
 
+
+
+			DataSet<String> tst = env.readFile(new MutableInputFormatTest(new Path()),"file:///home/mustafa/Documents/tst/3");
+
+			tst.print();
+
 			//DataSet<Person> secondIn = env.readFile(new TypeSerializerInputFormat(new GenericTypeInfo(Person.class)),"/home/mustafa/Documents/tst/1");
-			LocatableInputSplit [] splits = new LocatableInputSplit[env.getParallelism()];
+	/*		LocatableInputSplit [] splits = new LocatableInputSplit[env.getParallelism()];
 			splits[0] = new LocatableInputSplit(env.getParallelism(),"localhost");
 			splits[1] = new LocatableInputSplit(env.getParallelism(),"localhost");
 			splits[2] = new LocatableInputSplit(env.getParallelism(),"localhost");
 			DataSet<Person> secondIn = env.createInput(new MutableInputFormatTest(new Path("file:///home/mustafa/Documents/tst/1"),splits)).map(new PersonMapper());
-			secondIn.print();
+			secondIn.print();*/
 
 /*
 

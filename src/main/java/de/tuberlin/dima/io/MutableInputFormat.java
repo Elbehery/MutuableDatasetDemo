@@ -6,8 +6,7 @@ import org.apache.flink.core.io.InputSplitSource;
 import org.apache.flink.core.io.LocatableInputSplit;
 
 
-public class MutableInputFormat  implements InputSplitSource<LocatableInputSplit>,StrictlyLocalAssignment {
-
+public class MutableInputFormat implements InputSplitSource<LocatableInputSplit>,StrictlyLocalAssignment {
 
 
 	@Override

@@ -13,15 +13,10 @@ import java.io.IOException;
  */
 public class MutableInputFormatTest extends TextInputFormat implements StrictlyLocalAssignment {
 
-	private LocatableInputSplit[] splits;
 
-	public MutableInputFormatTest(Path filePath, LocatableInputSplit[] splits) {
+	public MutableInputFormatTest(Path filePath) {
 		super(filePath);
-		this.splits = splits;
 	}
 
-	@Override
-	public void open(FileInputSplit split) throws IOException {
-		super.open((FileInputSplit)splits[0]);
-	}
+
 }
