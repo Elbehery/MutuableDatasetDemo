@@ -10,7 +10,7 @@ public class Person implements Serializable{
     private char sex;
     private int age;
     private String major = null;
-    private List<String> bestCourse = new ArrayList<String>();
+    private List<String> courses = new ArrayList<String>();
     private List<String> jobs = new ArrayList<String>();
 
     public String getMajor() {
@@ -21,12 +21,12 @@ public class Person implements Serializable{
         this.major = major;
     }
 
-    public List<String> getBestCourse() {
-        return bestCourse;
+    public List<String> getCourses() {
+        return courses;
     }
 
-    public void setBestCourse(List<String> bestCourse) {
-        this.bestCourse = bestCourse;
+    public void setCourses(List<String> courses) {
+        this.courses = courses;
     }
 
     public String getName() {
@@ -76,9 +76,9 @@ public class Person implements Serializable{
                 .append(age).append(";").append(major).append(";");
 
         int counter = 0;
-        for(String course : bestCourse){
+        for(String course : courses){
             person.append(course);
-            if(counter < bestCourse.size()-1) {
+            if(counter < courses.size()-1) {
                 person.append(";");
                 counter++;
             }

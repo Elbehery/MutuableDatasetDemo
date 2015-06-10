@@ -28,7 +28,6 @@ public class MutuableDatasetPartitioning {
 
 		final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(3);
-		//	env.getConfig().enableForceAvro();
 		env.getConfig().disableObjectReuse();
 		env.getConfig().setExecutionMode(ExecutionMode.BATCH_FORCED);
 
@@ -59,28 +58,6 @@ public class MutuableDatasetPartitioning {
 					.with(new ComputeJobsProfile());
 
 			updatedPersonTwo.print();
-/*
-			// TODO: to write as Pojos
-			TypeSerializerOutputFormat<Person> personTypeSerializerOutputFormat = new TypeSerializerOutputFormat<Person>();
-			personTypeSerializerOutputFormat.setInputType(new GenericTypeInfo(Person.class),env.getConfig());
-			updatedPersonOne.write(personTypeSerializerOutputFormat, "file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
-
-			// TODO: to write as Text
-		//	updatedPersonOne.write(new TextOutputFormat<Person>(new Path()),"file:///home/mustafa/Documents/tst/", FileSystem.WriteMode.OVERWRITE);
-
-
-			// TODO: to read as Pojos
-			DataSet<Person> updatedPersonOneFromDisk = env.readFile(new TypeSerializerInputFormat(new GenericTypeInfo(Person.class)),"/home/mustafa/Documents/tst");
-
-			// TODO: to read as Text
-		//	DataSet<String> updatedPersonOneFromDisk = env.readFile(new TextInputFormat(new Path()),"/home/mustafa/Documents/tst");
-
-			updatedPersonOneFromDisk.print();
-
-			final JobExecutionResult result = env.execute("coGrouping sequence example");
-			final List<Tuple2<Integer, String>> taskFields = result.getAccumulatorResult(TASK_INFO_ACCUMULATOR);
-
-			//System.out.format("number of objects in the map =  %s\n", taskFields);*/
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
@@ -144,7 +121,6 @@ public class MutuableDatasetPartitioning {
 
 			// adding the host info to the local accumulator
 			Tuple2<Integer, String> hostInfo = new Tuple2<Integer, String>(getRuntimeContext().getIndexOfThisSubtask(), getRuntimeContext().getTaskName());
-			//System.out.println("**************************" + hostInfo.f0 + "*************" + ((Person) value).getName());
 			this.taskAssignmentAccumulator.add(hostInfo);
 			return (T) value;
 		}
@@ -232,7 +208,7 @@ public class MutuableDatasetPartitioning {
 		public void update(Person person, Collection<StudentInfo> infos, Collector<Person> collector) {
 			person.setMajor(infos.iterator().next().getMajor());
 			for (StudentInfo info : infos) {
-				person.getBestCourse().addAll(info.getCourses());
+				person.getCourses().addAll(info.getCourses());
 			}
 			collector.collect(person);
 		}
