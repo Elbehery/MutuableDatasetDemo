@@ -1,6 +1,5 @@
 package eu.stratosphere.emma.stateful.baseline;
 
-import de.tuberlin.dima.flink.model.Person;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.CoGroupFunction;
@@ -17,8 +16,10 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.util.Collector;
-import java.lang.reflect.Field;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.UUID;
 
 public class Stateful {
 
@@ -54,7 +55,7 @@ public class Stateful {
 			stateless
 					.partitionByHash(key)
 					.map(new HostTrackingMapper<A>(taskAssignmentAccumulatorName))
-					.write(new TypeSerializerOutputFormat<A>(), path, FileSystem.WriteMode.NO_OVERWRITE);
+					.write(new TypeSerializerOutputFormat<A>(), path, FileSystem.WriteMode.OVERWRITE);
 
 			// execute dataflow
 			JobExecutionResult result = env.execute("Stateful[Create]");
@@ -66,12 +67,11 @@ public class Stateful {
 			this.typeInformation = stateless.getType();
 		}
 
-		public <B, C> DataSet<Person> updateWith(FlatMapFunction<Tuple2<A, B>, C> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
+		public <B, C> DataSet<A> updateWith(FlatMapFunction<Tuple2<A, B>, A> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
 
-			DataSet<Person> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
+			DataSet<A> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
 					.coGroup(updates)
-					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Person>()); // FIXME: you need to pass the UDF here
-
+					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, A>(udf)); // FIXME: you need to pass the UDF here
 
 			return res;
 		}
@@ -81,31 +81,38 @@ public class Stateful {
 	// FIXME: the 'update' call is implemented by a UDF
 	// the UDF should have an appropriate signature `(a: A, b: Seq[B]): Seq[C]` and should be passed as a parameter here
 	// private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
-	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, Person> {
+	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, A> {
 
-		private Map<Integer, Class<?>> fieldsMap;
+		private FlatMapFunction<Tuple2<A, B>, A> udf;
+
+		public StatefulUpdater(FlatMapFunction flatMapFunction) {
+			this.udf = flatMapFunction;
+		}
 
 		// FIXME: instead of Collector<Person> it should be Collector<Either<A,B>>
 		@Override
-		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<Person> out) throws Exception {
-			Iterator<A> xit = first.iterator();
-			Iterator<B> yit = second.iterator();
+		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<A> out) throws Exception {
 
-			A x = null;
-			if (xit.hasNext()) {
-				x = xit.next();
+			Iterator<A> aIterator = first.iterator();
+			Iterator<B> bIterator = second.iterator();
+
+			A a = null;
+			if (aIterator.hasNext()) {
+				a = aIterator.next();
 			}
 
-			if (x != null) {
-				ArrayList<B> ys = new ArrayList<B>();
+			if (a != null) {
+				ArrayList<B> bList = new ArrayList<B>();
 
-				while (yit.hasNext())
-					ys.add(yit.next());
+				while (bIterator.hasNext())
+					bList.add(bIterator.next());
 
-				if (ys.size() > 0) {
-					this.fieldsMap = getAllFields(ys.get(0)); //FIXME: why do you do this? you are restricting the implementation to POJOs. Rely on KeySelectors and black-box objects
-					update(x, ys, out, this.fieldsMap); // the update call is implemented by a UDF
-					// collect 'x'
+				if (bList.size() > 0) {
+					for (B b : bList) {
+						this.udf.flatMap(new Tuple2<A, B>(a, b), out);
+
+					}
+					// collect 'x'  FIXME: I disAgree, since we should not retrieve tuples without corresponding tuples in the coGrouped DataSet ..
 				} else {
 					// collect 'x'
 				}
@@ -113,70 +120,6 @@ public class Stateful {
 				// collect 'x'
 			}
 		}
-
-		public void update(A a, Collection<B> bCollection, Collector<Person> collector, Map<Integer, Class<?>> fieldsMap) {
-
-			// the update function is
-			try {
-				// retrieve all the fields of A to check the corresponding fields in B
-				Field[] fields = a.getClass().getDeclaredFields();
-
-				for (Field field : fields) {
-
-					int fieldHashCode = field.getName().hashCode();
-
-					//check that the hashCode of the field exist in the map, If TRUE, compare the TYPE of each of them
-					if (fieldsMap.containsKey(fieldHashCode)) {
-						if (field.getType().equals(fieldsMap.get(fieldHashCode))) {
-
-							// allowing access to private fields
-							field.setAccessible(true);
-
-							//check the type of the field .. If Collection, add all object's values to it. Else, fill it only once
-							if (List.class.isAssignableFrom(field.getType())) {
-
-								// Update the field of A with the value in B ..
-								for (B b : bCollection) {
-									Field bField = b.getClass().getDeclaredField(field.getName());
-									bField.setAccessible(true);
-
-									// FIXME: How to edit a List with Reflection ??
-									List<String> aa = (List<String>)field.get(a);
-									aa.add(((List<String>)bField.get(b)).get(0));
-
-									field.set(a, aa);
-								}
-
-							}
-							else {
-
-								B b = bCollection.iterator().next();
-								Field bField = b.getClass().getDeclaredField(field.getName());
-								bField.setAccessible(true);
-								field.set(a, bField.get(b));
-							}
-
-						}
-					}
-				}
-			} catch (NoSuchFieldException | IllegalAccessException ex) {
-				System.out.println(ex.getMessage());
-			}
-		}
-
-
-		// Creating a HashMap holds all the fields of the given object, to check which fields to updates in the original object
-		public <T> Map<Integer, Class<?>> getAllFields(T t) {
-
-			Map<Integer, Class<?>> fieldsMap = new HashMap<Integer, Class<?>>();
-			Field[] fields = t.getClass().getDeclaredFields();
-			for (Field field : fields) {
-				fieldsMap.put(field.getName().hashCode(), field.getType());
-			}
-
-			return fieldsMap;
-		}
-
 
 	}
 
