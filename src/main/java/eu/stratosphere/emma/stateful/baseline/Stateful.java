@@ -70,7 +70,7 @@ public class Stateful {
 
 			DataSet<Person> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
 					.coGroup(updates)
-					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Person>());
+					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, Person>()); // FIXME: you need to pass the UDF here
 
 
 			return res;
@@ -78,37 +78,45 @@ public class Stateful {
 	}
 
 
+	// FIXME: the 'update' call is implemented by a UDF
+	// the UDF should have an appropriate signature `(a: A, b: Seq[B]): Seq[C]` and should be passed as a parameter here
 	// private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
 	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, Person> {
 
 		private Map<Integer, Class<?>> fieldsMap;
 
+		// FIXME: instead of Collector<Person> it should be Collector<Either<A,B>>
 		@Override
 		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<Person> out) throws Exception {
+			Iterator<A> xit = first.iterator();
+			Iterator<B> yit = second.iterator();
 
-
-			A a = null;
-			Iterator<A> aIterator = first.iterator();
-			if (aIterator.hasNext()) {
-				a = aIterator.next();
+			A x = null;
+			if (xit.hasNext()) {
+				x = xit.next();
 			}
 
-			if (a != null) {
-				ArrayList<B> bList = new ArrayList<B>();
-				Iterator<B> bIterator = second.iterator();
+			if (x != null) {
+				ArrayList<B> ys = new ArrayList<B>();
 
-				while (bIterator.hasNext())
-					bList.add(bIterator.next());
+				while (yit.hasNext())
+					ys.add(yit.next());
 
-				if (bList.size() > 0) {
-					this.fieldsMap = getAllFields(bList.get(0));
-					update(a, bList, out, this.fieldsMap);
+				if (ys.size() > 0) {
+					this.fieldsMap = getAllFields(ys.get(0)); //FIXME: why do you do this? you are restricting the implementation to POJOs. Rely on KeySelectors and black-box objects
+					update(x, ys, out, this.fieldsMap); // the update call is implemented by a UDF
+					// collect 'x'
+				} else {
+					// collect 'x'
 				}
+			} else {
+				// collect 'x'
 			}
 		}
 
 		public void update(A a, Collection<B> bCollection, Collector<Person> collector, Map<Integer, Class<?>> fieldsMap) {
 
+			// the update function is
 			try {
 				// retrieve all the fields of A to check the corresponding fields in B
 				Field[] fields = a.getClass().getDeclaredFields();
