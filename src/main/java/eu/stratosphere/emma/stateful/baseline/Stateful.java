@@ -13,11 +13,13 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.io.TypeSerializerInputFormat;
 import org.apache.flink.api.java.io.TypeSerializerOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.util.Collector;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -67,13 +69,13 @@ public class Stateful {
 			this.typeInformation = stateless.getType();
 		}
 
-		public <B, C> DataSet<A> updateWith(FlatMapFunction<Tuple2<A, B>, A> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
+		public <B, C> DataSet<A> updateWith(FlatMapFunction<Tuple2<A, Collection<B>>, C> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
 
-			DataSet<A> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
+			DataSet<C> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
 					.coGroup(updates)
-					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, A>(udf)); // FIXME: you need to pass the UDF here
+					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, C>(udf)); // FIXME: you need to pass the UDF here
 
-			return res;
+			return null;
 		}
 	}
 
@@ -81,17 +83,17 @@ public class Stateful {
 	// FIXME: the 'update' call is implemented by a UDF
 	// the UDF should have an appropriate signature `(a: A, b: Seq[B]): Seq[C]` and should be passed as a parameter here
 	// private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
-	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, A> {
+	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C>, ResultTypeQueryable<C> {
 
-		private FlatMapFunction<Tuple2<A, B>, A> udf;
+		private FlatMapFunction<Tuple2<A, Collection<B>>, C> udf;
 
-		public StatefulUpdater(FlatMapFunction flatMapFunction) {
+		public StatefulUpdater(FlatMapFunction<Tuple2<A, Collection<B>>, C> flatMapFunction) {
 			this.udf = flatMapFunction;
 		}
 
 		// FIXME: instead of Collector<Person> it should be Collector<Either<A,B>>
 		@Override
-		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<A> out) throws Exception {
+		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<C> out) throws Exception {
 
 			Iterator<A> aIterator = first.iterator();
 			Iterator<B> bIterator = second.iterator();
@@ -103,24 +105,17 @@ public class Stateful {
 
 			if (a != null) {
 				ArrayList<B> bList = new ArrayList<B>();
-
-				while (bIterator.hasNext())
-					bList.add(bIterator.next());
-
-				if (bList.size() > 0) {
-					for (B b : bList) {
-						this.udf.flatMap(new Tuple2<A, B>(a, b), out);
-
-					}
-					// collect 'x'  FIXME: I disAgree, since we should not retrieve tuples without corresponding tuples in the coGrouped DataSet ..
-				} else {
-					// collect 'x'
-				}
-			} else {
-				// collect 'x'
+				while (bIterator.hasNext()) bList.add(bIterator.next());
+				this.udf.flatMap(new Tuple2<A, Collection<B>>(a, bList), out);
 			}
+			// collect 'x'
 		}
 
+		@Override
+		@SuppressWarnings("unchecked")
+		public TypeInformation<C> getProducedType() {
+			return ((ResultTypeQueryable<C>) udf).getProducedType();
+		}
 	}
 
 	/**
@@ -193,6 +188,7 @@ public class Stateful {
 
 		@Override
 		public Accumulator<Tuple2<Integer, String>, ArrayList<Tuple2<Integer, String>>> clone() {
+			// FIXME: you hould call super.clone()
 
 			TaskAssignmentAccumulator clonedTaskAssignmentAccumulator = new TaskAssignmentAccumulator();
 			clonedTaskAssignmentAccumulator.hostInfo = this.hostInfo;

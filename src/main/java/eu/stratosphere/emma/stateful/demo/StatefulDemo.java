@@ -5,11 +5,16 @@ import de.tuberlin.dima.flink.model.StudentInfo;
 import eu.stratosphere.emma.stateful.baseline.Stateful;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.GenericTypeInfo;
+import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
+
+import java.util.Collection;
 
 
 public class StatefulDemo {
@@ -73,18 +78,7 @@ public class StatefulDemo {
 					});
 
 
-			DataSet<Person> tst = model.updateWith(new FlatMapFunction<Tuple2<Person, StudentInfo>, Person>() {
-
-				@Override
-				public void flatMap(Tuple2<Person, StudentInfo> value, Collector<Person> out) throws Exception {
-
-					Person person = value.f0;
-					StudentInfo studentInfo = value.f1;
-					person.setMajor(studentInfo.getMajor());
-					out.collect(person);
-
-				}
-			}, inStudent, new KeySelector<StudentInfo, String>() {
+			DataSet<Person> tst = model.updateWith(new UpdateStudentMajor(), inStudent, new KeySelector<StudentInfo, String>() {
 				@Override
 				public String getKey(StudentInfo value) throws Exception {
 					return value.getName();
@@ -96,6 +90,22 @@ public class StatefulDemo {
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
+		}
+	}
+
+	private static class UpdateStudentMajor implements FlatMapFunction<Tuple2<Person, Collection<StudentInfo>>, Person>, ResultTypeQueryable<Person> {
+
+		@Override
+		public void flatMap(Tuple2<Person, Collection<StudentInfo>> value, Collector<Person> out) throws Exception {
+
+			Person person = value.f0;
+			out.collect(person);
+
+		}
+
+		@Override
+		public TypeInformation<Person> getProducedType() {
+			return new GenericTypeInfo<Person>(Person.class);
 		}
 	}
 }
