@@ -85,30 +85,30 @@ public class Stateful {
 	// private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
 	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C>, ResultTypeQueryable<C> {
 
+		// FIXME: the output type here should be C, don't change it to Either<A,C>
 		private FlatMapFunction<Tuple2<A, Collection<B>>, C> udf;
 
 		public StatefulUpdater(FlatMapFunction<Tuple2<A, Collection<B>>, C> flatMapFunction) {
 			this.udf = flatMapFunction;
 		}
 
-		// FIXME: instead of Collector<Person> it should be Collector<Either<A,B>>
+		// FIXME: instead of Collector<Person> it should be Collector<Either<A,C>>
 		@Override
 		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<C> out) throws Exception {
-
-			Iterator<A> aIterator = first.iterator();
-			Iterator<B> bIterator = second.iterator();
-
 			A a = null;
+			Iterator<A> aIterator = first.iterator();
 			if (aIterator.hasNext()) {
 				a = aIterator.next();
 			}
 
 			if (a != null) {
+				Iterator<B> bIterator = second.iterator();
 				ArrayList<B> bList = new ArrayList<B>();
 				while (bIterator.hasNext()) bList.add(bIterator.next());
+				// FIXME: you need to wrap the original 'out' collector into a one of type 'C' that internally wraps each output element 'c' into Right('c'), i.e. the right part of the union type
 				this.udf.flatMap(new Tuple2<A, Collection<B>>(a, bList), out);
 			}
-			// collect 'x'
+			// FIXME: collect 'x'
 		}
 
 		@Override
