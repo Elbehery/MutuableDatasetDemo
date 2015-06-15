@@ -1,5 +1,6 @@
 package eu.stratosphere.emma.stateful.baseline;
 
+import com.google.common.base.Preconditions;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.CoGroupFunction;
@@ -69,20 +70,19 @@ public class Stateful {
 			this.typeInformation = stateless.getType();
 		}
 
-		public <B, C> DataSet<A> updateWith(FlatMapFunction<Tuple2<A, Collection<B>>, C> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
+		public <B, C> DataSet<C> updateWith(FlatMapFunction<Tuple2<A, Collection<B>>, C> udf, DataSet<B> updates, KeySelector<B, K> updateKey) {
 
 			DataSet<C> res = env.readFile(new TypeSerializerInputFormat<A>(typeInformation), path)
 					.coGroup(updates)
 					.where(statefulKey).equalTo(updateKey).with(new StatefulUpdater<A, B, C>(udf)); // FIXME: you need to pass the UDF here
 
-			return null;
+			return res;
 		}
 	}
 
 
 	// FIXME: the 'update' call is implemented by a UDF
 	// the UDF should have an appropriate signature `(a: A, b: Seq[B]): Seq[C]` and should be passed as a parameter here
-	// private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C> {
 	private static class StatefulUpdater<A, B, C> implements CoGroupFunction<A, B, C>, ResultTypeQueryable<C> {
 
 		// FIXME: the output type here should be C, don't change it to Either<A,C>
@@ -94,21 +94,32 @@ public class Stateful {
 
 		// FIXME: instead of Collector<Person> it should be Collector<Either<A,C>>
 		@Override
-		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<C> out) throws Exception {
-			A a = null;
-			Iterator<A> aIterator = first.iterator();
-			if (aIterator.hasNext()) {
-				a = aIterator.next();
-			}
+		public void coGroup(Iterable<A> first, Iterable<B> second, Collector<C> out) {
 
-			if (a != null) {
+			try {
+
+				A a = null;
+				Iterator<A> aIterator = first.iterator();
 				Iterator<B> bIterator = second.iterator();
+
+				if (aIterator.hasNext()) {
+					a = aIterator.next();
+				}
+
+				// check the left side is exist for each coGroup
+				Preconditions.checkNotNull(a);
+
 				ArrayList<B> bList = new ArrayList<B>();
 				while (bIterator.hasNext()) bList.add(bIterator.next());
+
 				// FIXME: you need to wrap the original 'out' collector into a one of type 'C' that internally wraps each output element 'c' into Right('c'), i.e. the right part of the union type
-				this.udf.flatMap(new Tuple2<A, Collection<B>>(a, bList), out);
+				if (bList.size() > 0) {
+					this.udf.flatMap(new Tuple2<A, Collection<B>>(a, bList), out);
+				}
+
+			} catch (Exception e) {
+				System.out.println(e.getCause());
 			}
-			// FIXME: collect 'x'
 		}
 
 		@Override
@@ -188,7 +199,6 @@ public class Stateful {
 
 		@Override
 		public Accumulator<Tuple2<Integer, String>, ArrayList<Tuple2<Integer, String>>> clone() {
-			// FIXME: you hould call super.clone()
 
 			TaskAssignmentAccumulator clonedTaskAssignmentAccumulator = new TaskAssignmentAccumulator();
 			clonedTaskAssignmentAccumulator.hostInfo = this.hostInfo;

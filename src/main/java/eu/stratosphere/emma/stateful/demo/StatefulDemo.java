@@ -14,7 +14,9 @@ import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 
 public class StatefulDemo {
@@ -99,8 +101,14 @@ public class StatefulDemo {
 		public void flatMap(Tuple2<Person, Collection<StudentInfo>> value, Collector<Person> out) throws Exception {
 
 			Person person = value.f0;
-			out.collect(person);
+			List<StudentInfo> studentInfoList = new ArrayList<StudentInfo>(value.f1);
 
+			for(StudentInfo studentInfo : studentInfoList){
+				value.f0.setMajor(studentInfo.getMajor());
+				value.f0.getCourses().addAll(studentInfo.getCourses());
+			}
+
+			out.collect(person);
 		}
 
 		@Override

@@ -37,4 +37,20 @@ public class StudentInfo implements Serializable {
     public void setCourses(List<String> courses) {
         this.courses = courses;
     }
+
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append(name).append(",").append(major).append(",");
+
+		int counter = 0;
+		for(String course : courses){
+			builder.append(course);
+			if(counter < courses.size()-1) {
+				builder.append(";");
+				counter++;
+			}
+		}
+		return builder.toString();
+	}
 }
