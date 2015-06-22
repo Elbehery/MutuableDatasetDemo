@@ -79,7 +79,7 @@ public class StatefulDemo {
 						}
 					});
 
-
+/*
 			DataSet<Person> tst = model.updateWith(new UpdateStudentMajor(), inStudent, new KeySelector<StudentInfo, String>() {
 				@Override
 				public String getKey(StudentInfo value) throws Exception {
@@ -88,7 +88,7 @@ public class StatefulDemo {
 			});
 
 			tst.print();
-			System.out.println("DONE");
+			System.out.println("DONE");*/
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
