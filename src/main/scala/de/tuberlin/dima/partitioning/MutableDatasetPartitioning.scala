@@ -4,8 +4,6 @@ import de.tuberlin.dima.model.{Person, StudentInfo, StudentJobs}
 import org.apache.flink.api.scala._
 import org.apache.flink.util.Collector
 
-import scala.collection.mutable.ArrayBuffer
-
 
 object MutableDatasetPartitioning {
 
@@ -35,7 +33,7 @@ object MutableDatasetPartitioning {
 			}
 		}
 
-		val updatedPersonTwo: DataSet[Person] = updatedPersonOne.map(x=>(x name, x)).coGroup(inJobs).where(0).equalTo(0) {
+		val updatedPersonTwo: DataSet[Person] = updatedPersonOne.map(x => (x name, x)).coGroup(inJobs).where(0).equalTo(0) {
 			(inPerson, inJobs, out: Collector[Person]) => {
 
 				val person = inPerson map (_._2) toSet
@@ -61,10 +59,10 @@ object MutableDatasetPartitioning {
 
 		val splits = txt.split(";").toList
 		val person = new Person
-		person name(splits(0))
-		person school(splits(1))
-		person sex((splits(2).charAt(0)))
-		person age(splits(3).toInt)
+		person name (splits(0))
+		person school (splits(1))
+		person sex ((splits(2).charAt(0)))
+		person age (splits(3).toInt)
 
 		person
 	}
@@ -86,7 +84,7 @@ object MutableDatasetPartitioning {
 
 		val splits = txt.split(";").toList
 		val studentJobs = new StudentJobs
-		studentJobs name(splits(0))
+		studentJobs name (splits(0))
 		studentJobs.jobs.+=(splits(1))
 
 		studentJobs

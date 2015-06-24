@@ -3,6 +3,7 @@ package eu.stratosphere.emma.stateful.demo;
 import de.tuberlin.dima.flink.model.Person;
 import de.tuberlin.dima.flink.model.StudentInfo;
 import eu.stratosphere.emma.stateful.baseline.Stateful;
+import eu.stratosphere.emma.stateful.baseline.StatefulAdapter;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -13,6 +14,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
+import scala.util.Either;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,8 +71,15 @@ public class StatefulDemo {
 					});
 
 
+			//TODO: Trial of Adapter Pattern with Scala
+			StatefulAdapter s = new StatefulAdapter(env, people, new KeySelector<Person,String>() {
+				@Override
+				public String getKey(Person value) throws Exception {
+					return value.getName();
+				}
+			});
 
-			// create a stateful dataset (forces execution)
+			/*// create a stateful dataset (forces execution)
 			Stateful.Set<Person, String> model = new Stateful.Set<Person, String>(env, people,
 					new KeySelector<Person, String>() {
 						@Override
@@ -78,9 +87,8 @@ public class StatefulDemo {
 							return person.getName();
 						}
 					});
-
-/*
-			DataSet<Person> tst = model.updateWith(new UpdateStudentMajor(), inStudent, new KeySelector<StudentInfo, String>() {
+*/
+			DataSet<Either<Person,Person>> tst = s.stateful().updateWith(new UpdateStudentMajor(), inStudent, new KeySelector<StudentInfo, String>() {
 				@Override
 				public String getKey(StudentInfo value) throws Exception {
 					return value.getName();
@@ -88,7 +96,7 @@ public class StatefulDemo {
 			});
 
 			tst.print();
-			System.out.println("DONE");*/
+			System.out.println("DONE");
 
 		} catch (Exception e) {
 			System.out.println("Error: " + e.getMessage());
